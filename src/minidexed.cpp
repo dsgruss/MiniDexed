@@ -1405,33 +1405,33 @@ void CMiniDexed::ProcessSound (void)
 			// END TG mixing
 
 			// BEGIN adding reverb
+			float32_t ReverbBuffer[2][nFrames];
+
+			float32_t *ReverbSendBuffer[2];
+			reverb_send_mixer->getBuffers(ReverbSendBuffer);
+
+			reverb_send_mixer->zeroFill();
+
+			for (uint8_t i = 0; i < m_nToneGenerators; i++)
+			{
+				reverb_send_mixer->doAddMix(i,m_OutputLevel[i]);
+			}
+
+			m_ReverbSpinLock.Acquire ();
+
+			// continue reverb processing even if bypassed, so buffer can clear out
+			reverb->doReverb(ReverbSendBuffer[indexL],ReverbSendBuffer[indexR],ReverbBuffer[indexL], ReverbBuffer[indexR],nFrames);
+
 			if (m_nParameter[ParameterReverbEnable])
 			{
-				float32_t ReverbBuffer[2][nFrames];
-
-				float32_t *ReverbSendBuffer[2];
-				reverb_send_mixer->getBuffers(ReverbSendBuffer);
-
-				reverb_send_mixer->zeroFill();
-
-				for (uint8_t i = 0; i < m_nToneGenerators; i++)
-				{
-					reverb_send_mixer->doAddMix(i,m_OutputLevel[i]);
-				}
-
-				m_ReverbSpinLock.Acquire ();
-
-				reverb->doReverb(ReverbSendBuffer[indexL],ReverbSendBuffer[indexR],ReverbBuffer[indexL], ReverbBuffer[indexR],nFrames);
-
 				// scale down and add left reverb buffer by reverb level 
 				arm_scale_f32(ReverbBuffer[indexL], reverb->get_level(), ReverbBuffer[indexL], nFrames);
 				arm_add_f32(SampleBuffer[indexL], ReverbBuffer[indexL], SampleBuffer[indexL], nFrames);
 				// scale down and add right reverb buffer by reverb level 
 				arm_scale_f32(ReverbBuffer[indexR], reverb->get_level(), ReverbBuffer[indexR], nFrames);
 				arm_add_f32(SampleBuffer[indexR], ReverbBuffer[indexR], SampleBuffer[indexR], nFrames);
-
-				m_ReverbSpinLock.Release ();
 			}
+			m_ReverbSpinLock.Release ();
 			// END adding reverb
 
 			// swap stereo channels if needed prior to writing back out
